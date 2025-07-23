@@ -4,12 +4,11 @@ export default function VerifyOTP() {
   return (
     <div className="min-h-screen flex">
       {/* Left side - Image */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-50 to-indigo-100 items-center justify-center p-12">
+      <div className="hidden lg:flex lg:w-1/2 bg-[url('/bg.png')] bg-cover bg-center items-center justify-center p-12">
         <div className="max-w-md text-center">
           {/* Dashboard Illustration */}
-          <div className="bg-white rounded-lg shadow-lg p-8 mb-8 max-w-sm mx-auto">
+          {/* <div className="bg-white rounded-lg shadow-lg p-8 mb-8 max-w-sm mx-auto">
             <div className="space-y-4">
-              {/* Mock dashboard elements */}
               <div className="flex items-center space-x-3 mb-6">
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">📱</span>
@@ -34,12 +33,12 @@ export default function VerifyOTP() {
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
           
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          <h2 className="text-2xl font-bold text-white mb-4">
             Almost There!
           </h2>
-          <p className="text-gray-600">
+          <p className="text-white">
             We&apos;ve sent a verification code to your email. Enter the code to complete your authentication.
           </p>
         </div>
