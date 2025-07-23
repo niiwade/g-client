@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { MagnifyingGlassIcon, PlusIcon, XMarkIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
+import { useState, useEffect } from 'react';
+import { PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Course = {
-  id: number;
+  _id: string;
+  id?: number; // Keep for backward compatibility
   title: string;
   instructor: string;
   category: string;
@@ -15,10 +17,11 @@ type Course = {
   description?: string;
   duration?: string;
   price?: string;
+  track?: string;
 };
 
 export default function CoursesPage() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const { token } = useAuth();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -28,93 +31,252 @@ export default function CoursesPage() {
     category: '',
     duration: '',
     price: '',
-    description: ''
+    description: '',
+    track: '',
+    image: null as File | null
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(true);
   const [editFormData, setEditFormData] = useState({
     title: '',
     instructor: '',
     category: '',
     duration: '',
     price: '',
-    description: ''
+    description: '',
+    track: '',
+    image: null as File | null
   });
-  const courses = [
-    {
-      id: 1,
-      title: 'Introduction to React',
-      instructor: 'John Smith',
-      category: 'Web Development',
-      enrollments: 156,
-      rating: 4.8,
-      status: 'Published',
-      description: 'Learn the fundamentals of React.js and build modern web applications.',
-      duration: '8 weeks',
-      price: '$299',
-    },
-    {
-      id: 2,
-      title: 'Advanced TypeScript',
-      instructor: 'Sarah Johnson',
-      category: 'Programming',
-      enrollments: 89,
-      rating: 4.6,
-      status: 'Published',
-      description: 'Master advanced TypeScript concepts and patterns.',
-      duration: '6 weeks',
-      price: '$249',
-    },
-    {
-      id: 3,
-      title: 'Node.js Fundamentals',
-      instructor: 'Michael Brown',
-      category: 'Backend Development',
-      enrollments: 112,
-      rating: 4.7,
-      status: 'Published',
-      description: 'Build scalable backend applications with Node.js.',
-      duration: '10 weeks',
-      price: '$349',
-    },
-    {
-      id: 4,
-      title: 'Full Stack Development',
-      instructor: 'Emily Davis',
-      category: 'Web Development',
-      enrollments: 203,
-      rating: 4.9,
-      status: 'Published',
-      description: 'Complete full stack development course covering frontend and backend.',
-      duration: '16 weeks',
-      price: '$599',
-    },
-    {
-      id: 5,
-      title: 'Database Design',
-      instructor: 'David Wilson',
-      category: 'Database',
-      enrollments: 78,
-      rating: 4.5,
-      status: 'Draft',
-    },
-    {
-      id: 6,
-      title: 'UI/UX Design Principles',
-      instructor: 'Jessica Miller',
-      category: 'Design',
-      enrollments: 145,
-      rating: 4.7,
-      status: 'Published',
-    },
-    {
-      id: 7,
-      title: 'GraphQL Masterclass',
-      instructor: 'Alex Morgan',
-      category: 'API Development',
-      enrollments: 67,
-      rating: 4.4,
-      status: 'Draft',
-    },
-  ];
+
+  // Fetch courses from API
+  const fetchCourses = async () => {
+    try {
+      setIsLoadingCourses(true);
+      console.log('=== FETCHING COURSES ===');
+      
+      const response = await fetch('/api/courses', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      
+      console.log('Fetch courses response:', response.status);
+      console.log('Courses data:', data);
+      console.log('=== END FETCH COURSES ===');
+
+      if (response.ok) {
+        // Handle different response formats
+        const coursesArray = Array.isArray(data) ? data : (data.courses || data.data || []);
+        
+        console.log('=== COURSE DATA STRUCTURE DEBUG ===');
+        console.log('Courses array length:', coursesArray.length);
+        if (coursesArray.length > 0) {
+          console.log('First course structure:', coursesArray[0]);
+          console.log('First course ID field:', coursesArray[0].id);
+          console.log('First course _id field:', coursesArray[0]._id);
+          console.log('All keys in first course:', Object.keys(coursesArray[0]));
+          
+          // Use _id as the primary identifier
+          const courseId = coursesArray[0]._id || coursesArray[0].id;
+          console.log('Course identifier to use:', courseId);
+        }
+        console.log('=== END COURSE STRUCTURE DEBUG ===');
+        
+        setCourses(coursesArray);
+      } else {
+        toast.error('Failed to fetch courses');
+        console.error('Fetch courses error:', data);
+      }
+    } catch (error) {
+      console.error('Fetch courses network error:', error);
+      toast.error('Network error while fetching courses');
+    } finally {
+      setIsLoadingCourses(false);
+    }
+  };
+
+  // Fetch courses on component mount
+  useEffect(() => {
+    fetchCourses();
+  }, []);
+
+  const handleCreateCourse = async () => {
+    if (!addFormData.title || !addFormData.track) {
+      toast.error('Please fill in all required fields (Title and Track)');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('title', addFormData.title);
+      formData.append('track', addFormData.track);
+      formData.append('description', addFormData.description);
+      
+      if (addFormData.image) {
+        formData.append('image', addFormData.image);
+      }
+
+      console.log('=== CREATING COURSE ===');
+      console.log('Form data being sent:');
+      for (const [key, value] of formData.entries()) {
+        console.log(`${key}:`, value);
+      }
+      console.log('=== END CREATE COURSE LOG ===');
+
+      const response = await fetch('/api/courses', {
+        method: 'POST',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('Course created successfully!');
+        setIsAddModalOpen(false);
+        // Reset form
+        setAddFormData({
+          title: '',
+          instructor: '',
+          category: '',
+          duration: '',
+          price: '',
+          description: '',
+          track: '',
+          image: null
+        });
+        // Refresh courses list
+        fetchCourses();
+      } else {
+        toast.error(data.message || 'Failed to create course');
+      }
+    } catch (error) {
+      console.error('Create course error:', error);
+      toast.error('Network error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateCourse = async () => {
+    if (!selectedCourse || !editFormData.title || !editFormData.track) {
+      toast.error('Please fill in all required fields (Title and Track)');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('title', editFormData.title);
+      formData.append('track', editFormData.track);
+      
+      if (editFormData.image) {
+        formData.append('image', editFormData.image);
+      }
+
+      console.log('=== UPDATING COURSE ===');
+      console.log('Course ID:', selectedCourse._id);
+      console.log('Form data being sent:');
+      for (const [key, value] of formData.entries()) {
+        console.log(`${key}:`, value);
+      }
+      console.log('=== END UPDATE COURSE LOG ===');
+
+      const response = await fetch(`/api/courses/${selectedCourse._id}`, {
+        method: 'PUT',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('Course updated successfully!');
+        setIsEditMode(false);
+        setSelectedCourse(null);
+        // Reset form
+        setEditFormData({
+          title: '',
+          instructor: '',
+          category: '',
+          duration: '',
+          price: '',
+          description: '',
+          track: '',
+          image: null
+        });
+        // Refresh courses list
+        fetchCourses();
+      } else {
+        toast.error(data.message || 'Failed to update course');
+      }
+    } catch (error) {
+      console.error('Update course error:', error);
+      toast.error('Network error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteCourse = async (courseId: string, courseTitle: string) => {
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the course "${courseTitle}"? This action cannot be undone.`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      console.log('=== DELETING COURSE ===');
+      console.log('Course ID:', courseId);
+      console.log('Course Title:', courseTitle);
+      console.log('=== END DELETE COURSE LOG ===');
+
+      const response = await fetch(`/api/courses/${courseId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      });
+
+      const data = await response.json();
+      console.log('Delete response:', data);
+
+      if (response.ok) {
+        toast.success(`Course "${courseTitle}" deleted successfully!`);
+        // Refresh courses list
+        fetchCourses();
+      } else {
+        // Check for specific error types
+        if (data.errors && data.errors.some((err: { message: string }) => err.message === 'User is not verified')) {
+          toast.error('Your account needs to be verified before you can delete courses. Please check your email for verification instructions.');
+        } else {
+          toast.error(data.message || data.errors?.[0]?.message || 'Failed to delete course');
+        }
+      }
+    } catch (error) {
+      console.error('Delete course error:', error);
+      toast.error('Network error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -185,8 +347,27 @@ export default function CoursesPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {courses.map((course) => (
-                <tr key={course.id}>
+              {isLoadingCourses ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                      <span className="text-gray-500">Loading courses...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : courses.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <div className="text-gray-500">
+                      <p className="text-lg font-medium">No courses found</p>
+                      <p className="text-sm">Get started by creating your first course.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                courses.map((course) => (
+                <tr key={course._id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-md"></div>
@@ -222,20 +403,28 @@ export default function CoursesPage() {
                           category: course.category,
                           duration: course.duration || '',
                           price: course.price?.replace('$', '') || '',
-                          description: course.description || ''
+                          description: course.description || '',
+                          track: course.track || '',
+                          image: null
                         });
                         setIsEditMode(true);
                       }}
-                      className="text-blue-600 hover:text-blue-900 mr-4"
+                      disabled={isLoading}
+                      className="text-blue-600 hover:text-blue-900 mr-4 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Edit
                     </button>
-                    <button className="text-red-600 hover:text-red-900">
+                    <button 
+                      onClick={() => handleDeleteCourse(course._id, course.title)}
+                      disabled={isLoading}
+                      className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       Delete
                     </button>
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -297,7 +486,7 @@ export default function CoursesPage() {
               {/* Course Title */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Course Title
+                  Course Title *
                 </label>
                 <input
                   type="text"
@@ -305,7 +494,44 @@ export default function CoursesPage() {
                   onChange={(e) => setAddFormData({...addFormData, title: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter course title"
+                  required
                 />
+              </div>
+
+              {/* Track */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Track ID *
+                </label>
+                <input
+                  type="text"
+                  value={addFormData.track}
+                  onChange={(e) => setAddFormData({...addFormData, track: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter track ID (e.g., 67fd04e1db1ad84c0687b468)"
+                  required
+                />
+              </div>
+
+              {/* Course Image */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Course Image
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setAddFormData({...addFormData, image: file});
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {addFormData.image && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Selected: {addFormData.image.name}
+                  </p>
+                )}
               </div>
 
               {/* Instructor */}
@@ -386,21 +612,18 @@ export default function CoursesPage() {
               {/* Create Button */}
               <button
                 type="button"
-                onClick={() => {
-                  console.log('Add course data:', addFormData);
-                  setIsAddModalOpen(false);
-                  setAddFormData({
-                    title: '',
-                    instructor: '',
-                    category: '',
-                    duration: '',
-                    price: '',
-                    description: ''
-                  });
-                }}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                onClick={handleCreateCourse}
+                disabled={isLoading}
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Course
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Creating...
+                  </div>
+                ) : (
+                  'Create Course'
+                )}
               </button>
             </form>
           </div>
@@ -427,7 +650,7 @@ export default function CoursesPage() {
               {/* Course Title */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Course Title
+                  Course Title *
                 </label>
                 <input
                   type="text"
@@ -435,7 +658,44 @@ export default function CoursesPage() {
                   onChange={(e) => setEditFormData({...editFormData, title: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter course title"
+                  required
                 />
+              </div>
+
+              {/* Track */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Track ID *
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.track}
+                  onChange={(e) => setEditFormData({...editFormData, track: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter track ID (e.g., 67f82d152d80247a28fcc2d0)"
+                  required
+                />
+              </div>
+
+              {/* Course Image */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Course Image
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setEditFormData({...editFormData, image: file});
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {editFormData.image && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Selected: {editFormData.image.name}
+                  </p>
+                )}
               </div>
 
               {/* Instructor */}
@@ -516,14 +776,18 @@ export default function CoursesPage() {
               {/* Update Button */}
               <button
                 type="button"
-                onClick={() => {
-                  console.log('Update course data:', editFormData);
-                  setIsEditMode(false);
-                  setSelectedCourse(null);
-                }}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                onClick={handleUpdateCourse}
+                disabled={isLoading}
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Update Course
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Updating...
+                  </div>
+                ) : (
+                  'Update Course'
+                )}
               </button>
             </form>
           </div>

@@ -1,6 +1,157 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from "next/link";
 
 export default function VerifyOTP() {
+  const [otpValues, setOtpValues] = useState(['', '', '', '', '', '']);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [resendSuccess, setResendSuccess] = useState('');
+  const [email, setEmail] = useState('');
+  const [authToken, setAuthToken] = useState('');
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const emailParam = searchParams.get('email');
+    const tokenParam = searchParams.get('token');
+    const storedToken = localStorage.getItem('signup_token');
+    const storedEmail = localStorage.getItem('signup_email');
+    
+    console.log('=== VERIFY OTP PAGE LOADED ===');
+    console.log('Email from URL:', emailParam || 'None');
+    console.log('Email from localStorage:', storedEmail || 'None');
+    console.log('Token from URL:', tokenParam || 'None');
+    console.log('Token from localStorage:', storedToken || 'None');
+    
+    // Set email from URL param, localStorage, or fallback to known email
+    if (emailParam) {
+      setEmail(emailParam);
+    } else if (storedEmail) {
+      setEmail(storedEmail);
+    } else {
+      // Fallback to the known email from auth context
+      setEmail('niilantewade77@gmail.com');
+    }
+    
+    if (tokenParam) {
+      setAuthToken(tokenParam);
+      console.log('Using token from URL');
+    } else if (storedToken) {
+      setAuthToken(storedToken);
+      console.log('Using token from localStorage');
+    } else {
+      console.log('NO TOKEN AVAILABLE');
+    }
+    
+    console.log('Final email:', emailParam || storedEmail || 'niilantewade77@gmail.com');
+    console.log('Final token:', tokenParam || storedToken || 'None');
+    console.log('=== END VERIFY OTP SETUP ===');
+  }, [searchParams]);
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (value.length <= 1) {
+      const newOtpValues = [...otpValues];
+      newOtpValues[index] = value;
+      setOtpValues(newOtpValues);
+      
+      // Auto-focus next input
+      if (value && index < 5) {
+        const nextInput = document.getElementById(`otp-${index + 1}`);
+        nextInput?.focus();
+      }
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    // Handle backspace to move to previous input
+    if (e.key === 'Backspace' && !otpValues[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-${index - 1}`);
+      prevInput?.focus();
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    setSuccess('');
+
+    const otpCode = otpValues.join('');
+    
+    if (otpCode.length !== 6) {
+      setError('Please enter all 6 digits of the OTP code.');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/auth/verify-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+        },
+        body: JSON.stringify({
+          token: otpCode,
+          email: email
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess('Email verified successfully! Redirecting to login...');
+        
+        // Redirect to login page after 2 seconds
+        setTimeout(() => {
+          window.location.href = '/auth/login';
+        }, 2000);
+      } else {
+        setError(data.message || 'Invalid verification code. Please try again.');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+      console.error('Email verification error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    setIsResending(true);
+    setError('');
+    setResendSuccess('');
+
+    try {
+      const response = await fetch('/api/auth/resend-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+        },
+        body: JSON.stringify({ email: email })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setResendSuccess('OTP code resent successfully! Please check your email.');
+        // Clear the current OTP inputs
+        setOtpValues(['', '', '', '', '', '']);
+      } else {
+        setError(data.message || 'Failed to resend OTP. Please try again.');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+      console.error('Resend OTP error:', err);
+    } finally {
+      setIsResending(false);
+    }
+  };
   return (
     <div className="min-h-screen flex">
       {/* Left side - Image */}
@@ -67,17 +218,39 @@ export default function VerifyOTP() {
               </p>
             </div>
             
-            <form className="space-y-6">
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
+            
+            {success && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-green-600 text-sm">{success}</p>
+              </div>
+            )}
+            
+            {resendSuccess && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-blue-600 text-sm">{resendSuccess}</p>
+              </div>
+            )}
+            
+            <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
                 <label htmlFor="otp" className="block text-sm font-medium text-gray-700 mb-3">
                   Enter OTP Code
                 </label>
                 <div className="flex gap-3 justify-between">
-                  {[1, 2, 3, 4, 5, 6].map((digit) => (
+                  {[0, 1, 2, 3, 4, 5].map((index) => (
                     <input
-                      key={digit}
+                      key={index}
+                      id={`otp-${index}`}
                       type="text"
                       maxLength={1}
+                      value={otpValues[index]}
+                      onChange={(e) => handleOtpChange(index, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(index, e)}
                       className="w-12 h-12 text-center text-xl font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       required
                     />
@@ -87,23 +260,43 @@ export default function VerifyOTP() {
               
               <button
                 type="submit"
-                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all font-medium mt-6"
+                disabled={isLoading}
+                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all font-medium mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Verify
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Verifying...
+                  </div>
+                ) : (
+                  'Verify'
+                )}
               </button>
             </form>
             
             <div className="mt-6 text-center">
               <p className="text-gray-600 text-sm">
                 Didn&apos;t receive the code?{" "}
-                <button className="text-blue-600 hover:text-blue-800 font-medium">
-                  Resend OTP
+                <button 
+                  type="button"
+                  onClick={handleResendOTP}
+                  disabled={isResending}
+                  className="text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isResending ? (
+                    <span className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-1"></div>
+                      Resending...
+                    </span>
+                  ) : (
+                    'Resend OTP'
+                  )}
                 </button>
               </p>
             </div>
             
             <div className="mt-4 text-center">
-              <Link href="/admin/auth/login" className="text-blue-600 hover:text-blue-800 font-medium text-sm">
+              <Link href="/auth/login" className="text-blue-600 hover:text-blue-800 font-medium text-sm">
                 Back to Login
               </Link>
             </div>

@@ -2,7 +2,9 @@
 
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/admin/sidebar';
+import { Topbar } from '@/components/admin/topbar';
 import { MobileNav } from '@/components/admin/mobile-nav';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 export default function AdminLayout({
   children,
@@ -23,23 +25,25 @@ export default function AdminLayout({
 
   // For dashboard pages, render with sidebar/topbar
   return (
-    <div className="h-full">
-      {/* Mobile Navigation - Only visible on small screens */}
-      <div className="md:hidden">
-        <MobileNav />
-      </div>
-      
-      {/* Desktop Navigation */}
-      <div className="hidden md:flex h-full">
-        <Sidebar />
+    <ProtectedRoute>
+      <div className="h-full">
+        {/* Mobile Navigation - Only visible on small screens */}
+        <div className="md:hidden">
+          <MobileNav />
+        </div>
         
-        <div className="flex-1 h-full overflow-y-auto">
-       
-          <main className="p-6">
-            {children}
-          </main>
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex h-full">
+          <Sidebar />
+          
+          <div className="flex-1 h-full overflow-y-auto">
+            <Topbar />
+            <main className="p-6">
+              {children}
+            </main>
+          </div>
         </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }
