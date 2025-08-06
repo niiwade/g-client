@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from "next/link";
 
-export default function ResetPassword() {
+// Wrapped component that uses useSearchParams
+function ResetPasswordContent() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -277,5 +278,14 @@ export default function ResetPassword() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main component that wraps the content in Suspense
+export default function ResetPassword() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading password reset...</div>}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

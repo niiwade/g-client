@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from "next/link";
 
-export default function VerifyOTP() {
+// Wrapped component that uses useSearchParams
+function VerifyOTPContent() {
+  const searchParams = useSearchParams();
   const [otpValues, setOtpValues] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
@@ -13,7 +15,6 @@ export default function VerifyOTP() {
   const [resendSuccess, setResendSuccess] = useState('');
   const [email, setEmail] = useState('');
   const [authToken, setAuthToken] = useState('');
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     const emailParam = searchParams.get('email');
@@ -304,5 +305,13 @@ export default function VerifyOTP() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyOTP() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading verification...</div>}>
+      <VerifyOTPContent />
+    </Suspense>
   );
 }
